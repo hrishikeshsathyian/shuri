@@ -124,8 +124,7 @@ async def say(word, seconds):
     print(word)
 
 async def main():
-    A = asyncio.create_task(say("slow", 2)) # create Task A, cannot run until the current Task gives up control of Event Loop, 
-                                            # i.e when current main() Task hands control over at an await 
+    A = asyncio.create_task(say("slow", 2)) # create Task A, cannot run until event loop schedules it 
     B = asyncio.create_task(say("fast", 1)) # ^ same thing, Task created but cannot run until Event Loop schedules itn
     await A # since the value of Task A is not ready, the Task main() hands control to Event Loop, that schedules Task A to be run
     await B
@@ -178,7 +177,7 @@ async def say(word, seconds):
     return word
 ```
 
-### `asyncio.gather()`
+#### `asyncio.gather()`
 
 Runs the coroutines concurrently, waits for **all** of them to finish, then returns their results as a list **in the order you passed them**, not the order they finished.
 
@@ -190,7 +189,7 @@ print(results)   # ['slow', 'fast']  (at 2s)
 
 If one raises an exception, `gather` raises it, but the other Tasks **keep running** in the background.
 
-### `asyncio.TaskGroup`
+#### `asyncio.TaskGroup`
 
 Tasks created inside the `async with` block are guaranteed to be finished when the block exits. If one fails, the rest are **cancelled**, so nothing is left running by accident.
 
@@ -202,7 +201,7 @@ async with asyncio.TaskGroup() as tg:
 print(a.result(), b.result())   # slow fast
 ```
 
-### `asyncio.as_completed()`
+#### `asyncio.as_completed()`
 
 Runs the coroutines concurrently and hands each result **as soon as it finishes**, fastest first. All the coroutines are wrapped in Tasks immediately; each item you iterate over is an awaitable for whichever Task finishes next.
 
