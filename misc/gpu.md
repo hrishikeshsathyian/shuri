@@ -5,9 +5,7 @@
 Problems with a small sequential fraction can benefit significantly from parallelism. From Amdahl's Law,
 
 $$
-
 S(N) = \frac{1}{f + \frac{1-f}{N}}
-
 $$
 
 where f is the fraction of the program that cannot be parallelised and N is the number of processors.
@@ -56,7 +54,7 @@ kernel<<<100, 256>>>(...);
 
 launches a grid containing **100 blocks**, with **256 threads per block**, for a total of **25,600 threads**. Each of these threads would then execute the kernel. 
 
-###### 1D, 2D and 3D organisation
+##### 1D, 2D and 3D organisation
 
 Both threads within a block and blocks within a grid can be organised in one, two, or three dimensions. This does not fundamentally change how the computation executes; it simply makes it easier for the logical layout of threads to match the shape of the data being processed.
 
@@ -79,7 +77,7 @@ kernel<<<blocks_per_grid, threads_per_block>>>(...);
 
 Here, the grid contains `4 × 4` blocks, and each block contains `16 × 16` threads. So we can think of each thread having an (x, y) index. 
 
-###### Identifying each thread
+##### Identifying each thread
 
 Because every thread executes the same kernel code, each thread needs a way to determine which piece of data it should process. CUDA provides several built-in variables for this:
 
@@ -139,7 +137,7 @@ A discrete GPU typically has its own dedicated main memory called VRAM. The CPU 
 
 A streaming processor (SP) is the closest equivalent to a physical core in a GPU’s architecture. It attempts to execute up to 32 threads (a warp) at the same time (clock cycle).
 
-###### compute units within the SP
+##### compute units within the SP
 
 Depending on the architecture, i.e. Hopper Architecture, it may have different compute power, i.e. how many FP64, INT32 ALU units etc. These compute units exist on a **SP level**, i.e. they are shared only **within an SP, by a warp**. When the warp executes an instruction, its 32 threads are mapped onto the available ALUs for that instruction type.
 
@@ -151,23 +149,23 @@ This means the throughput of different instruction types depends on how many cor
 
 A **Streaming Multiprocessor (SM)** consists of multiple Streaming Processors (SPs), together with resources used to manage and execute many threads concurrently.
 
-###### register file
+##### register file
 
 The SM contains a large register file, which is partitioned among all threads currently resident on that SM. Each thread receives its own registers from this register file.
 > However, the register file is finite. High register usage per thread can reduce the number of threads, warps and blocks that can reside on the SM simultaneously.
 
-###### L1 cache and shared memory
+##### L1 cache and shared memory
 
 Each SM also contains fast on-chip L1 data cache, a portion of which can be reserved for shared memory. The L1 cache stores recently accessed data for threads running on the SM. The amount reserved for shared memory is explicitly defined by the programmer.
 
 Because an entire block resides on one SM, all threads in that block can access that block’s shared-memory allocation. **Different blocks receive separate portions of shared memory and cannot directly access one another’s shared-memory data.**
 
-###### block residency
+#####  block residency
 
 When a CUDA block is scheduled for execution, the **entire block is assigned to one SM**. The block remains resident on that SM until it finishes and does not migrate to another SM. Several blocks may be resident on the same SM at the same time, **provided there are sufficient SM resources such as registers and shared memory.**
 
 
-###### warp scheduling
+##### warp scheduling
 
 The threads within each block are divided into groups of **32 consecutive threads called warps**. Although the block is assigned to an SM, the individual warps within that block are assigned to the SPs within that SM. Each SP can have multiple warps waiting to execute. The warp scheduler selects a ready warp assigned to that SP and allows it to execute.
 
@@ -175,7 +173,7 @@ Since several blocks may be resident on the same SM at once, the warps assigned 
 
 This is the basis of **latency hiding**, that allows for the high throughput of GPUs.
 
-###### deciding how to allocate cache and shared memory
+##### deciding how to allocate cache and shared memory
 
 Recall that having latency hiding essentially means that we want to be able to context switch quickly whenever a warp stalls, i.e. due to global memory access, data dependency or synchronisation. This means we want multiple ready warps available for execution. If each block takes up too much shared memory, then fewer blocks can be resident on the SM, meaning fewer resident warps are available for latency hiding.
 
@@ -197,22 +195,22 @@ When a warp encounters a branch, it splits into subsets of threads (active masks
 
 Although touched upon throughout the above sectinos, this section gives a consolidated view to the different memory available on the GPU.
 
-###### registers
+##### registers
 **Each thread** has access to its own registers, which are the fastest storage available on the GPU. Registers are allocated from the SM's register file when the thread becomes resident. If a thread's live data cannot be kept in registers, some values may instead be stored in local memory.
 
-###### local memory aka thread-local memory
+##### local memory aka thread-local memory
 Local memory is **private to an individual thread**. It is typically used when per-thread data cannot fit in registers, such as due to register spilling. Although its scope is local to a thread, local memory physically resides in GPU VRAM, so accesses are relatively expensive
 
-###### shared memory 
+##### shared memory 
 Shared memory is fast on-chip memory shared by **all threads within the same block**.Threads in the same block can use shared memory to communicate and reuse data, while threads belonging to different blocks cannot directly access each other's shared-memory allocations. Shared memory has higher bandwidth and lower latency than local or global memory
 
-###### global memory 
+##### global memory 
 Global memory is the GPU's main read/write memory and resides in GPU VRAM. It is accessible by **all threads** executing on the GPU but has much higher latency than registers or shared memory. Global-memory accesses are cached
 
-###### cache 
+##### cache 
 L1 and L2 cache. Memory accesses to VRAM may be serviced through the GPU's cache hierarchy. Each SM has access to an L1 cache, while all SMs share a larger L2 cache as seen in the diagram above.
 
-###### constant and texture memory
+##### constant and texture memory
 CUDA also provides specialised read-only memory spaces that reside in the GPU VRAM.
 - constant memory is read-only and is useful for suitable linear/read-only access patterns
 - texture memory is read-only and is designed for spatial access patterns such as 2D data
@@ -232,7 +230,7 @@ CUDA also provides specialised read-only memory spaces that reside in the GPU VR
 
 A GPU program is not just limited to the kernel execution itself. A large part of performance is dictated by memory transfer between the CPU and GPU, as well as the memory accesses within the kernel itself. Hence, in this section, we explore the ways to optimise memory transfer and accesses. 
 
-###### minimizing host-device transfers and using streams
+##### minimizing host-device transfers and using streams
 
 We have to appreciate that kernel execution is usually preceded by a memory copy from the CPU to the GPU's VRAM. Transfers between CPU memory and GPU memory are relatively expensive, so we should minimize both the amount of data transferred and the number of separate transfers. Where possible, many small transfers should be combined into fewer large transfers.
 
@@ -260,7 +258,7 @@ Stream 1:      Copy B ───── Kernel B
 
 Thus, `cudaMemcpyAsync()` is most useful with **multiple streams**, where a memory transfer in one stream can overlap with kernel execution in another, helping to hide transfer latency.
 
-###### tiling with shared memory
+##### tiling with shared memory
 
 Global memory is relatively slow, so we want to avoid repeatedly loading the same data from GPU DRAM.
 
@@ -270,7 +268,7 @@ The goal is therefore to perform as few global-memory accesses as possible while
 
 This is especially useful for workloads such as matrix multiplication, where the same values may be reused by multiple threads.
 
-###### coalesced global-memory access
+##### coalesced global-memory access
 
 GPU global memory is accessed in fixed-size memory transactions.
 
@@ -312,7 +310,7 @@ Thread 2  → arr[16]
 
 This can require many more memory transactions, resulting in poor memory-bandwidth utilization.
 
-###### bank conflicts in shared memory
+##### bank conflicts in shared memory
 
 Shared memory has **lower latency and higher bandwidth than global memory**, but its performance still depends on the access pattern. Shared memory is divided into **32 equally-sized memory banks**. Each bank has a bandwidth of **32 bits = 4 bytes per clock cycle**, and successive 4-byte words are assigned to successive banks.
 
@@ -353,5 +351,5 @@ Since the bank cannot service both different addresses simultaneously, the acces
 
 The goal when using shared memory is therefore not only to reduce global-memory accesses, but also to arrange the shared-memory access pattern so that bank conflicts are minimized.
 
-###### improving instruction throughput
+##### improving instruction throughput
 We would want to minimize the use of arithmetic instructions with low throughput and instead we should trade precision for speed. Single-precision float operations provide the best performance, and integer division and modulo operations are particularly costly and hence we should replace them with bitwise operations. We would also want to minimize divergence in warps.
