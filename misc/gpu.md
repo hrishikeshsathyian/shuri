@@ -1,5 +1,8 @@
 ## <mark>GPU Programming</mark>
 
+#### <mark>credits</mark>
+The contents of this markdown content revision are partially inspired / sourced from the NUS CS3210 Teaching Team. 
+
 #### <mark>motivation</mark>
 
 Problems with a small sequential fraction can benefit significantly from parallelism. From Amdahl's Law,
